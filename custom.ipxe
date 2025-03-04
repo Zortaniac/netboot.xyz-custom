@@ -1,39 +1,6 @@
 #!ipxe
 
-:start
-isset ${arch} && goto skip_arch_detect ||
-cpuid --ext 29 && set arch x86_64 || set arch i386
-iseq ${buildarch} arm64 && set arch arm64 ||
-:skip_arch_detect
-chain --autofree boot.cfg ||
-echo Attempting to retrieve latest upstream version number...
-chain --timeout 5000 https://boot.netboot.xyz/version.ipxe ||
-ntp 0.pool.ntp.org ||
-iseq ${cls} serial && goto ignore_cls ||
-set cls:hex 1b:5b:4a  # ANSI clear screen sequence - "^[[J"
-set cls ${cls:string}
-:ignore_cls
-
-:version_check
-set latest_version 2.x
-echo ${cls}
-iseq ${version} ${latest_version} && goto version_up2date ||
-echo
-echo Updated version of netboot.xyz is available:
-echo
-echo Running version.....${version}
-echo Updated version.....${latest_version}
-echo
-echo Please download the latest version from netboot.xyz.
-echo
-echo Attempting to chain to latest version...
-chain --autofree http://${boot_domain}/ipxe/${ipxe_disk} ||
-:version_up2date
-
-isset ${menu} && goto ${menu} ||
-isset ${ip} || dhcp
-
-:main_menu
+:custom
 clear menu
 set space:hex 20:20
 set space ${space:string}
@@ -54,10 +21,6 @@ iseq ${menu_pci} 1 && item lspci ${space} PCI Device List ||
 item about ${space} About netboot.xyz
 item --gap Signature Checks:
 item sig_check ${space} netboot.xyz [ enabled: ${sigs_enabled} ]
-isset ${github_user} && item --gap Custom Github Menu: ||
-isset ${github_user} && item custom-github ${space} ${github_user}'s Custom Menu ||
-isset ${custom_url} && item --gap Custom URL Menu: ||
-isset ${custom_url} && item custom-url ${space} Custom URL Menu ||
 isset ${menu} && set timeout 0 || set timeout ${boot_timeout}
 choose --timeout ${timeout} --default ${menu} menu || goto local
 echo ${cls}
@@ -86,87 +49,3 @@ goto main_menu
 iseq ${arch} x86_64 && set arch i386 && set menu_linux_i386 1 && set menu_linux 0 && goto main_menu ||
 iseq ${arch} i386 && set arch x86_64 && set menu_linux_i386 0 && set menu_linux 1 && goto main_menu ||
 goto main_menu
-
-:sig_check
-iseq ${sigs_enabled} true && set sigs_enabled false || set sigs_enabled true
-goto main_menu
-
-:about
-chain https://boot.netboot.xyz/about.ipxe || chain about.ipxe
-goto main_menu
-
-:custom-github
-chain https://raw.githubusercontent.com/${github_user}/netboot.xyz-custom/master/custom.ipxe || goto error
-goto main_menu
-
-:custom-url
-chain ${custom_url}/custom.ipxe || goto error
-goto main_menu
-
-:custom-user
-chain custom/custom.ipxe
-goto main_menu
-
-
-:lcu
-set os Debian
-set os_arch ${arch}
-iseq ${os_arch} x86_64 && set os_arch amd64 ||
-iseq ${os_arch} i386 && set os_arch i386 ||
-iseq ${os_arch} arm64 && set os_arch arm64 ||
-clear debian_version
-clear older_release
-menu ${os} - ${os_arch}
-item --gap Latest Releases
-item bookworm ${space} ${os} 12.0 (bookworm)
-item bullseye ${space} ${os} 11.0 (bullseye)
-item buster ${space} ${os} 10.0 (buster)
-item --gap Testing Releases
-item trixie ${space} ${os} trixie (testing)
-item sid ${space} ${os} sid (unstable)
-item --gap Older Releases
-item older_release ${space} Set release codename...
-choose debian_version || goto debian_exit
-iseq ${debian_version} older_release && goto older_release ||
-goto mirrorcfg
-
-:older_release
-set older_release true
-set debian_mirror http://archive.debian.org
-echo Setting mirror to ${debian_mirror}
-clear debian_version
-echo -n Please set enter code name of release: ${} && read debian_version
-set dir ${debian_base_dir}/dists/${debian_version}/main/installer-${os_arch}/current/images/netboot/
-goto deb_boot_type
-
-:mirrorcfg
-set debian_mirror ${debian_mirror}
-set mirrorcfg mirror/suite=${debian_version}
-set dir ${debian_base_dir}/dists/${debian_version}/main/installer-${os_arch}/current/images/netboot/
-goto deb_preseed
-
-:deb_preseed
-set install_params auto=true priority=critical preseed/url=http://192.168.0.1:8000/preseed.cfg
-goto deb_text
-
-:deb_text
-set dir ${dir}${menu}-installer/${os_arch}
-goto deb_boot
-
-:deb_graphical
-set dir ${dir}gtk/${menu}-installer/${os_arch}
-set install_params vga=788
-goto deb_boot
-
-:deb_boot
-imgfree
-kernel ${debian_mirror}/${dir}/linux ${install_params} ${netcfg} ${mirrorcfg} initrd=initrd.magic ${cmdline}
-initrd ${debian_mirror}/${dir}/initrd.gz
-echo
-echo MD5sums:
-md5sum linux initrd.gz
-boot
-
-:debian_exit
-clear menu
-exit 0
