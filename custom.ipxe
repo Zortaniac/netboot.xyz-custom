@@ -61,12 +61,7 @@ isset ${custom_url} && item custom-url ${space} Custom URL Menu ||
 isset ${menu} && set timeout 0 || set timeout ${boot_timeout}
 choose --timeout ${timeout} --default ${menu} menu || goto local
 echo ${cls}
-goto ${menu} ||
-iseq ${sigs_enabled} true && goto verify_sigs || goto change_menu
-
-:verify_sigs
-imgverify ${menu}.ipxe ${sigs}${menu}.ipxe.sig || goto error
-goto change_menu
+goto ${menu} || goto change_menu
 
 :change_menu
 chain ${menu}.ipxe || goto error
