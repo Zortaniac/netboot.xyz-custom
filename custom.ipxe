@@ -8,7 +8,7 @@ isset ${next-server} && menu ${site_name} v${version} - next-server: ${next-serv
 item --gap Default:
 item local ${space} Boot from local hdd
 item --gap Distributions:
-iseq ${menu_lcu} 1 && item lcu ${space} LCU Install(64-bit) ||
+item lcu ${space} LCU Install(64-bit) ||
 item --gap Tools:
 iseq ${menu_utils} 1 && iseq ${platform} efi && item utils-efi ${space} Utilities (UEFI) ||
 iseq ${menu_utils} 1 && iseq ${platform} pcbios && iseq ${arch} x86_64 && item utils-pcbios-64 ${space} Utilities (64-bit) ||
